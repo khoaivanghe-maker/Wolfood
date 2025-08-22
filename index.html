@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Werewolf Online</title>
+</head>
+<body>
+  <h1>🐺 Werewolf Online</h1>
+
+  <div>
+    <label>Nhập tên của bạn:</label>
+    <input type="text" id="nameInput" placeholder="VD: An, Bình, Chi..." />
+  </div>
+
+  <div>
+    <label>Nhập Room ID:</label>
+    <input type="text" id="roomInput" placeholder="VD: room1" />
+    <button id="joinBtn">Tham gia phòng</button>
+  </div>
+
+  <h2>Danh sách người chơi trong phòng:</h2>
+  <ul id="playerList"></ul>
+
+  <!-- Kết nối socket.io -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io("http://localhost:3000");
+    const joinBtn = document.getElementById("joinBtn");
+    const roomInput = document.getElementById("roomInput");
+    const nameInput = document.getElementById("nameInput");
+    const playerList = document.getElementById("playerList");
+
+    // Kết nối thành công
+    socket.on("connect", () => {
+      console.log("✅ Đã kết nối đến server:", socket.id);
+    });
+
+    // Khi bấm "Tham gia phòng"
+    joinBtn.onclick = () => {
+      const roomId = roomInput.value.trim();
+      const playerName = nameInput.value.trim();
+
+      if (!playerName) {
+        alert("Vui lòng nhập tên của bạn!");
+        return;
+      }
+      if (!roomId) {
+        alert("Vui lòng nhập Room ID!");
+        return;
+      }
+
+      socket.emit("join_room", { roomId, playerName });
+    };
+
+    // Cập nhật danh sách người chơi
+    socket.on("room_update", (players) => {
+      playerList.innerHTML = "";
+      players.forEach((player) => {
+        const li = document.createElement("li");
+        li.textContent = player.name;
+        playerList.appendChild(li);
+      });
+    });
+
+    // Báo phòng đầy
+    socket.on("room_full", (roomId) => {
+      alert(`Phòng ${roomId} đã đủ 7 người!`);
+    });
+  </script>
+</body>
+</html>
+node server.js

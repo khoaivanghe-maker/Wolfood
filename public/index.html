@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Werewolf Online</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #222;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .hidden { display: none; }
+    .container {
+      background: #333;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #000;
+      max-width: 400px;
+      width: 100%;
+      margin-top: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #218838;
+    }
+    #player-list {
+      margin-top: 15px;
+      padding: 10px;
+      background: #444;
+      border-radius: 5px;
+    }
+    .error {
+      color: #ff4444;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐺 Werewolf Online</h1>
+
+  <!-- ĐĂNG KÝ -->
+  <div id="register-container" class="container">
+    <h2>Đăng ký</h2>
+    <input id="reg-username" type="text" placeholder="Tên đăng nhập" />
+    <input id="reg-email" type="email" placeholder="Email" />
+    <input id="reg-password" type="password" placeholder="Mật khẩu" />
+    <button id="register-btn">Đăng ký</button>
+    <p class="error" id="register-error"></p>
+  </div>
+
+  <!-- ĐĂNG NHẬP -->
+  <div id="login-container" class="container hidden">
+    <h2>Đăng nhập</h2>
+    <input id="login-identifier" type="text" placeholder="Tên hoặc Email" />
+    <input id="login-password" type="password" placeholder="Mật khẩu" />
+    <button id="login-btn">Đăng nhập</button>
+    <p class="error" id="login-error"></p>
+  </div>
+
+  <!-- PHÒNG CHƠI -->
+  <div id="room-container" class="container hidden">
+    <h2>Chào mừng <span id="current-user"></span>!</h2>
+    <input id="room-id" type="text" placeholder="Nhập ID phòng" />
+    <button id="join-room-btn">Tham gia phòng</button>
+    <div id="player-list" class="hidden">
+      <h3>👥 Người chơi trong phòng</h3>
+      <ul id="players"></ul>
+    </div>
+    <p class="error" id="room-error"></p>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const registerContainer = document.getElementById("register-container");
+    const loginContainer = document.getElementById("login-container");
+    const roomContainer = document.getElementById("room-container");
+
+    const regUsername = document.getElementById("reg-username");
+    const regEmail = document.getElementById("reg-email");
+    const regPassword = document.getElementById("reg-password");
+    const registerBtn = document.getElementById("register-btn");
+    const registerError = document.getElementById("register-error");
+
+    const loginIdentifier = document.getElementById("login-identifier");
+    const loginPassword = document.getElementById("login-password");
+    const loginBtn = document.getElementById("login-btn");
+    const loginError = document.getElementById("login-error");
+
+    const currentUser = document.getElementById("current-user");
+    const roomIdInput = document.getElementById("room-id");
+    const joinRoomBtn = document.getElementById("join-room-btn");
+    const playerList = document.getElementById("player-list");
+    const playersUl = document.getElementById("players");
+    const roomError = document.getElementById("room-error");
+
+    let username = "";
+    const socket = io();
+
+    // Xử lý đăng ký
+    registerBtn.addEventListener("click", async () => {
+      const usernameVal = regUsername.value.trim();
+      const emailVal = regEmail.value.trim();
+      const passwordVal = regPassword.value.trim();
+
+      if (!usernameVal || !emailVal || !passwordVal) {
+        registerError.textContent = "Vui lòng nhập đủ thông tin!";
+        return;
+      }
+
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: usernameVal, email: emailVal, password: passwordVal }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        registerError.textContent = data.message;
+        return;
+      }
+
+      alert("Đăng ký thành công! Hãy đăng nhập.");
+      registerContainer.classList.add("hidden");
+      loginContainer.classList.remove("hidden");
+    });
+
+    // Xử lý đăng nhập
+    loginBtn.addEventListener("click", async () => {
+      const identifierVal = loginIdentifier.value.trim();
+      const passwordVal = loginPassword.value.trim();
+
+      if (!identifierVal || !passwordVal) {
+        loginError.textContent = "Vui lòng nhập đủ thông tin!";
+        return;
+      }
+
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier: identifierVal, password: passwordVal }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        loginError.textContent = data.message;
+        return;
+      }
+
+      username = data.username;
+      currentUser.textContent = username;
+      loginContainer.classList.add("hidden");
+      roomContainer.classList.remove("hidden");
+    });
+
+    // Tham gia phòng chơi
+    joinRoomBtn.addEventListener("click", () => {
+      const roomId = roomIdInput.value.trim();
+      if (!roomId) {
+        roomError.textContent = "Vui lòng nhập ID phòng!";
+        return;
+      }
+      roomError.textContent = "";
+      socket.emit("join_room", { roomId, playerName: username });
+    });
+
+    // Cập nhật danh sách người chơi trong phòng
+    socket.on("room_update", (players) => {
+      playersUl.innerHTML = "";
+      players.forEach((player) => {
+        const li = document.createElement("li");
+        li.textContent = player.name;
+        playersUl.appendChild(li);
+      });
+      playerList.classList.remove("hidden");
+    });
+
+    // Lỗi tên không hợp lệ
+    socket.on("error_msg", (msg) => {
+      roomError.textContent = msg;
+    });
+
+    // Thông báo phòng đầy
+    socket.on("room_full", () => {
+      roomError.textContent = "Phòng đã đầy!";
+    });
+  </script>
+</body>
+</html>
+
+
