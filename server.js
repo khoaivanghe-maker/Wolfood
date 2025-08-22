@@ -26,6 +26,11 @@ const io = new Server(server);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public"))); // Chứa file HTML, CSS, JS
 
+// Nếu người dùng truy cập "/" thì trả về index.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 // ====================== API ĐĂNG KÝ ======================
 app.post("/api/register", async (req, res) => {
   const { username, email, password } = req.body;
@@ -84,55 +89,42 @@ io.on("connection", (socket) => {
 
   // Người chơi tham gia phòng
   socket.on("join_room", ({ roomId, playerName }) => {
-    // Kiểm tra tên hợp lệ
     if (!playerName || playerName.trim() === "" || playerName.includes("node")) {
       return socket.emit("error_msg", "Tên không hợp lệ!");
     }
 
-    // Nếu phòng chưa tồn tại → tạo mới
     if (!db.data.rooms[roomId]) {
       db.data.rooms[roomId] = [];
     }
 
-    // Kiểm tra phòng đầy
     if (db.data.rooms[roomId].length >= 7) {
       return socket.emit("room_full");
     }
 
-    // Lưu thông tin người chơi
     db.data.rooms[roomId].push({ id: socket.id, name: playerName });
     db.write();
 
     socket.join(roomId);
-
-    // Gửi danh sách người chơi trong phòng cho tất cả
     io.to(roomId).emit("room_update", db.data.rooms[roomId]);
   });
 
-  // Khi người chơi thoát
   socket.on("disconnect", () => {
     console.log(`❌ Người chơi rời: ${socket.id}`);
-
-    // Xóa người chơi khỏi tất cả phòng
     for (const roomId in db.data.rooms) {
       const oldLength = db.data.rooms[roomId].length;
-
       db.data.rooms[roomId] = db.data.rooms[roomId].filter(
         (player) => player.id !== socket.id
       );
-
-      // Nếu có thay đổi → cập nhật danh sách người chơi
       if (db.data.rooms[roomId].length !== oldLength) {
         io.to(roomId).emit("room_update", db.data.rooms[roomId]);
       }
     }
-
     db.write();
   });
 });
 
 // ====================== CHẠY SERVER ======================
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // <--- Quan trọng
 server.listen(PORT, () => {
   console.log(`🚀 Server đang chạy tại http://localhost:${PORT}`);
 });
